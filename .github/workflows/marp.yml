@@ -1,0 +1,49 @@
+name: Convert all Markdown in src/md to PDF
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  conversion-and-commit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Create output directory
+        run: mkdir -p output/pdf
+
+      - name: Convert all md to pdf
+        run: |
+          for file in src/md/*.md; do
+            filename=$(basename "$file" .md)
+            npx marp "$file" --pdf --verbose
+            mv "src/md/${filename}.pdf" "output/pdf/${filename}.pdf"
+          done
+
+      - name: List PDF files
+        run: ls -la output/pdf
+
+      - name: Commit changes
+        if: success()
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add output/pdf/*.pdf
+          git status
+          git diff --quiet && git diff --staged --quiet || (git commit -m "Update pdf" && git push)
+    
